@@ -6,7 +6,8 @@ var express = require('express')
   , employeeFinder = require('../lib/employee-finder')
   , userFinder = require('../lib/user-finder')
   , _ =  require('underscore')
-  , twimlGenerator = require('../lib/twiml-generator');
+  , twimlGenerator = require('../lib/twiml-generator')
+  , watson = require('../lib/watson');
 
 
 // POST /directory/test
@@ -15,6 +16,13 @@ router.post('/test/', function(req, res, next) {
   try {
     var body = req.body;
     var msg = body.Body.toLowerCase().trim()
+    var sentiment = watson.isPositive(msg)
+    .then(response => {
+      console.log('got this response from watson: ', response)
+    })
+    .catch(err => {
+      console.log('caught this watson error: ', err)
+    })
     var userPhone = body.From
     console.log('got this body: ', body)
     console.log('parsed this phone: ', userPhone)
