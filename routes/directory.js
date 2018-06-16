@@ -9,25 +9,19 @@ var express = require('express')
   , twimlGenerator = require('../lib/twiml-generator')
   , watson = require('../lib/watson');
 
+// run once to reset my interaction
+userFinder.deleteUserByNumber('+15672678038')
 
 // POST /directory/test
 router.post('/test/', function(req, res, next) {
-  // userFinder.deleteUserByNumber('+15672678038')
   try {
     var body = req.body;
     var msg = body.Body.toLowerCase().trim()
-    var sentiment = watson.isPositive(msg)
-    .then(response => {
-      console.log('got this response from watson: ', response)
-    })
-    .catch(err => {
-      console.log('caught this watson error: ', err)
-    })
     var userPhone = body.From
     console.log('got this body: ', body)
     console.log('parsed this phone: ', userPhone)
+
     res.type('text/xml');
-    res.clearCookie('cachedUser');
 
     var user = userFinder.findByNumber(userPhone, function(err, user) {
       if (err) {
@@ -38,25 +32,32 @@ router.post('/test/', function(req, res, next) {
         res.send(twimlGenerator.welcome().toString())
       }
       else {
-        var stage = user.stage;
-        console.log('got user in this stage: ', stage)
-        if (stage === 'welcome') {
-          var user = userFinder.findByNumber(userPhone, function(err, user) {
-            console.log('found this user: ', user)
-            // var stage = user
-            res.send(twimlGenerator.checkDisabled().toString());
-          })
-        } else {
-          console.log('no match for stage :', stage)
-        }
+        watson.isPositive(msg)
+        .then(sentiment => {
+          console.log('got this response from watson: ', sentiment)
+          nextStage(user, sentiment, res)
+        })
+        .catch(err => {
+          console.log('caught this watson error: ', err)
+        })
       }
     })
   }
   catch(err) {
-    // res.clearCookie('cachedUser')
     console.log(err)
   }
 })
+
+function nextStage(user, sentiment, res) {
+  var stage = user.stage;
+  console.log('got user in this stage: ', stage)
+  if (stage === 'welcome') {
+    userFinder.updateStage(user, 'check-disabled')
+    res.send(twimlGenerator.checkDisabled().toString());
+  } else {
+    console.log('no match for stage :', stage)
+  }
+}
 
 // POST /directory/search/
 router.post('/search/', function(req, res, next) {
