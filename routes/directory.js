@@ -11,6 +11,7 @@ var express = require('express')
 
 // POST /directory/test
 router.post('/test/', function(req, res, next) {
+  // userFinder.deleteUserByNumber('+15672678038')
   try {
     var body = req.body;
     var msg = body.Body.toLowerCase().trim()
@@ -18,25 +19,30 @@ router.post('/test/', function(req, res, next) {
     console.log('got this body: ', body)
     console.log('parsed this phone: ', userPhone)
     res.type('text/xml');
+    res.clearCookie('cachedUser');
 
-    // In this case, this is a returning user
-    if (req.cookies.cachedUser !== undefined) {
-      res.clearCookie('cachedUser');
-      var user = userFinder.findByNumber(userPhone, function(err, user) {
-        console.log('found this user: ', user)
-        // var stage = user
-        res.send(twimlGenerator.checkDisabled().toString());
-      })
-    }
-    // This is a new user
-    else {
-      // if (msg === 'food') {
-      // } else {
-      // }
-      userFinder.createUserByNumber(userPhone)
-      res.cookie('cachedUser', userPhone, { maxAge: 1000 * 60 * 60 });
-      res.send(twimlGenerator.welcome().toString())
-    }
+    var user = userFinder.findByNumber(userPhone, function(err, user) {
+      if (err) {
+        throw 'ERROR FINDING USER BY NUMBER'
+      }
+      if (user === null) {
+        userFinder.createUserByNumber(userPhone)
+        res.send(twimlGenerator.welcome().toString())
+      }
+      else {
+        var stage = user.stage;
+        console.log('got user in this stage: ', stage)
+        if (stage === 'welcome') {
+          var user = userFinder.findByNumber(userPhone, function(err, user) {
+            console.log('found this user: ', user)
+            // var stage = user
+            res.send(twimlGenerator.checkDisabled().toString());
+          })
+        } else {
+          console.log('no match for stage :', stage)
+        }
+      }
+    })
   }
   catch(err) {
     // res.clearCookie('cachedUser')
