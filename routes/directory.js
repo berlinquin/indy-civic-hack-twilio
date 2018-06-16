@@ -11,26 +11,37 @@ var express = require('express')
 
 // POST /directory/test
 router.post('/test/', function(req, res, next) {
-  var body = req.body.Body;
-  var msg = body.toLowerCase().trim()
-  var userPhone = body.From
-  res.type('text/xml');
+  try {
+    var body = req.body;
+    var msg = body.Body.toLowerCase().trim()
+    var userPhone = body.From
+    console.log('got this body: ', body)
+    console.log('parsed this phone: ', userPhone)
+    res.type('text/xml');
 
-  // In this case, this is a returning user
-  if (req.cookies.cachedUser !== undefined && !isNaN(body)) {
-    var user = userFinder.findByNumber(userPhone)
-    console.log('found this user: ', user)
-    // var stage = user
+    // In this case, this is a returning user
+    if (req.cookies.cachedUser !== undefined) {
+      res.clearCookie('cachedUser');
+      var user = userFinder.findByNumber(userPhone, function(err, user) {
+        console.log('found this user: ', user)
+        // var stage = user
+        res.send(twimlGenerator.checkDisabled().toString());
+      })
+    }
+    // This is a new user
+    else {
+      // if (msg === 'food') {
+      // } else {
+      // }
+      userFinder.createUserByNumber(userPhone)
+      res.cookie('cachedUser', userPhone, { maxAge: 1000 * 60 * 60 });
+      res.send(twimlGenerator.welcome().toString())
+    }
   }
-  // This is a new user
-  else {
-    // if (msg === 'food') {
-    // } else {
-    // }
-    res.cookie('cachedUser', userPhone, { maxAge: 1000 * 60 * 60 });
-    res.send(twimlGenerator.welcome().toString())
+  catch(err) {
+    // res.clearCookie('cachedUser')
+    console.log(err)
   }
-  // handle case where this is initial conversation
 })
 
 // POST /directory/search/
