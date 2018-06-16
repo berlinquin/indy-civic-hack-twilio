@@ -32,14 +32,7 @@ router.post('/test/', function(req, res, next) {
         res.send(twimlGenerator.welcome().toString())
       }
       else {
-        watson.isPositive(msg)
-        .then(sentiment => {
-          console.log('got this response from watson: ', sentiment)
-          nextStage(user, sentiment, res)
-        })
-        .catch(err => {
-          console.log('caught this watson error: ', err)
-        })
+        nextStage(user, msg, res)
       }
     })
   }
@@ -48,15 +41,32 @@ router.post('/test/', function(req, res, next) {
   }
 })
 
-function nextStage(user, sentiment, res) {
+// move user thru workflow
+function nextStage(user, msg, res) {
   var stage = user.stage;
+  var request
+  var promise
   console.log('got user in this stage: ', stage)
   if (stage === 'welcome') {
-    userFinder.updateStage(user, 'check-disabled')
-    res.send(twimlGenerator.checkDisabled().toString());
-  } else {
-    console.log('no match for stage :', stage)
+    userFinder.updateStage(user, 'household')
+    request = twimlGenerator.checkHousehold().toString()
+    promise = Promise.resolve()
   }
+  else if (stage === 'household') {
+    userFinder.updateStage(user, 'disabled')
+    request = twimlGenerator.checkDisabled().toString()
+    promise = watson.getNumber(msg)
+  }
+  
+  else {
+    throw 'NO MATCH FOR STAGE: '+stage
+  }
+  promise.then(sentiment => {
+    if (sentiment !== undefined) {
+      userFinder.updateField(user, stage, sentiment)
+    }
+  })
+  res.send(request)
 }
 
 // POST /directory/search/
