@@ -10,7 +10,7 @@ var express = require('express')
   , watson = require('../lib/watson');
 
 // run once to reset my interaction
-userFinder.deleteUserByNumber('+15672678038')
+// userFinder.deleteUserByNumber('+15672678038')
 
 // POST /directory/test
 router.post('/test/', function(req, res, next) {
@@ -57,9 +57,30 @@ function nextStage(user, msg, res) {
     request = twimlGenerator.checkDisabled().toString()
     promise = watson.getNumber(msg)
   }
-  
+  else if (stage === 'disabled') {
+    userFinder.updateStage(user, 'seasonal')
+    request = twimlGenerator.checkSeasonal().toString()
+    promise = watson.isPositive(msg)
+  }
+  else if (stage === 'seasonal') {
+    userFinder.updateStage(user, 'homeless')
+    request = twimlGenerator.checkHomeless().toString()
+    promise = watson.isPositive(msg)
+  }
+  else if (stage === 'homeless') {
+    userFinder.updateStage(user, 'income')
+    request = twimlGenerator.checkIncome().toString()
+    promise = watson.getNumber(msg)
+  }
+  else if (stage === 'income') {
+    userFinder.updateStage(user, 'final')
+    request = twimlGenerator.getEligibleMessage().toString()
+    promise = watson.isPositive(msg)
+  }
   else {
-    throw 'NO MATCH FOR STAGE: '+stage
+    console.log('No match for stage: ', stage)
+    request = 'OK'
+    promise = Promise.resolve()
   }
   promise.then(sentiment => {
     if (sentiment !== undefined) {
