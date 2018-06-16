@@ -9,8 +9,10 @@ var express = require('express')
   , twimlGenerator = require('../lib/twiml-generator')
   , watson = require('../lib/watson');
 
+const client = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
 // run once to reset my interaction
-// userFinder.deleteUserByNumber('+15672678038')
+userFinder.deleteUserByNumber('+15672678038')
 
 // POST /directory/test
 router.post('/test/', function(req, res, next) {
@@ -32,7 +34,7 @@ router.post('/test/', function(req, res, next) {
         res.send(twimlGenerator.welcome().toString())
       }
       else {
-        nextStage(user, msg, res)
+        nextStageLocation(user, msg, res)
       }
     })
   }
@@ -41,8 +43,61 @@ router.post('/test/', function(req, res, next) {
   }
 })
 
-// move user thru workflow
-function nextStage(user, msg, res) {
+function nextStageLocation(user, msg, res) {
+  var stage = user.stage;
+  var request
+  console.log('got user in this stage: ', stage)
+  if (stage === 'welcome') {
+    userFinder.updateStage(user, 'address')
+    request = twimlGenerator.requestAddress().toString()
+    res.send(request)
+  }
+  else if (stage === 'address') {
+    userFinder.updateStage(user, 'followup')
+    // TODO Get closest pantries
+    var pantries = ['one', 'two', 'three']
+    request = twimlGenerator.sendClosest(pantries).toString()
+    res.send(request)
+    setTimeout(function () {
+      sendMessage(twimlGenerator.requestOutcomeString(), user.phoneNumber)
+    }, 2000);
+  }
+  else if (stage === 'followup') {
+    userFinder.updateStage(user, 'thanks')
+    watson.isPositive(msg)
+    .then(isPositive => {
+      if (isPositive) {
+        request = twimlGenerator.requestReasonPositive()
+      } else {
+        request = twimlGenerator.requestReasonNegative()
+      }
+      res.send(request)
+    })
+  }
+  else if (stage === 'thanks') {
+    userFinder.updateStage(user, 'done')
+    request = twimlGenerator.getThanks().toString()
+    res.send(request)
+  }
+  else {
+    console.log('No match for stage: ', stage)
+  }
+}
+
+function sendMessage(msg, number) {
+  console.log('sending '+msg+' to '+number)
+  client.messages
+    .create({
+       body: msg,
+       from: '+13177932789',
+       to: number
+     })
+    .then(message => console.log('sent message: ',message))
+    .done();
+}
+
+// move user thru eligibility workflow
+function nextStageEligibility(user, msg, res) {
   var stage = user.stage;
   var request
   var promise
